@@ -10,42 +10,23 @@ const PORT = process.env.PORT || 3000;
 const HF_TOKEN = process.env.HF_TOKEN;
 const HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct";
 
-// Сценарий генерации вердикта с обсуждением
+// Функция анализа жалобы только Casper
 async function analyzeComplaint(text) {
   const prompt = `
-Ты – модерационная система MAGI с тремя агентами: Casper, Melchior и Balthasar.
-- Casper максимально человечный, старается смягчать наказания.
-- Melchior оценивает строгость нарушений.
-- Balthasar оценивает социальный и эмоциональный вред для сообщества.
-
-Задача:
-1. Каждый агент даёт своё мнение о нарушении (может выбрать нарушения самостоятельно, ориентируясь на текст жалобы).
-2. Они обсуждают между собой причины и аргументы, спорят или соглашаются.
-3. В конце формируют итоговый вердикт, который учитывает мнения всех троих.
-4. Указываются:
-   - Нарушения
-   - Баллы
-   - Предлагаемое наказание
-   - Причины (с аргументами каждого агента)
+Ты — модератор Casper. Твоя задача максимально человечно оценить жалобу.
+- Выбираешь нарушения самостоятельно исходя из текста.
+- Стараешься смягчить наказание, если это возможно.
+- Объясни, почему выбрал нарушения и наказание.
+- Укажи нарушения, баллы и предложенное наказание.
 
 Текст жалобы: "${text}"
-Ответ должен быть в формате JSON:
+
+Ответ в формате JSON:
 {
-  "discussion": [
-    {"agent": "Casper", "comment": "..."},
-    {"agent": "Melchior", "comment": "..."},
-    {"agent": "Balthasar", "comment": "..."}
-  ],
-  "verdict": {
-    "violations": ["..."],
-    "points": 0,
-    "proposedPunishment": "...",
-    "reasoning": [
-      "Casper: ...",
-      "Melchior: ...",
-      "Balthasar: ..."
-    ]
-  }
+  "violations": ["..."],
+  "points": 0,
+  "proposedPunishment": "...",
+  "reasoning": "..."
 }
 `;
 
@@ -62,7 +43,7 @@ async function analyzeComplaint(text) {
   return data;
 }
 
-// Endpoint для чата
+// Endpoint для анализа жалобы
 app.post("/analyze", async (req, res) => {
   try {
     const { text } = req.body;
@@ -77,7 +58,7 @@ app.post("/analyze", async (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.send("MAGI server is running");
+  res.send("MAGI Casper server is running");
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
