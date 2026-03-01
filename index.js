@@ -1,124 +1,66 @@
-import TelegramBot from "node-telegram-bot-api";
-import dotenv from "dotenv";
-dotenv.config();
+/* command: /magi */
 
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
-
-// Хранилище жалоб
-const complaints = {};
-
-// --- Команда для подачи жалобы ---
-bot.onText(/\/complain/, (msg) => {
-  const chatId = msg.chat.id;
-  complaints[chatId] = { text: "" };
-  bot.sendMessage(chatId, "Напишите текст жалобы:");
-});
-
-// --- Сохраняем текст жалобы ---
-bot.on("message", (msg) => {
-  const chatId = msg.chat.id;
-  if (!complaints[chatId] || complaints[chatId].text) return;
-  complaints[chatId].text = msg.text;
-  bot.sendMessage(chatId, "Жалоба сохранена. Нажмите /magi для анализа.");
-});
-
-// --- Функции анализа для каждого мага ---
-function kasperAnalysis(text, prevScores = []) {
-  // Каспер — самый человечный, учитывает контекст и шутки
-  let score = 0, reasons = [];
-
-  if (/дурак|тупой|идиот/i.test(text)) {
-    score += 1;
-    reasons.push("Оскорбление в шутку/нежестко");
-  }
-  if (/гей|недоумок/i.test(text)) {
-    score += 2;
-    reasons.push("Оскорбление личности");
-  }
-
-  // Мягко корректируем баллы, если предыдущие мозги высоко оценили жесткость
-  if (prevScores.some(s => s > 2)) score += 0; // Каспер не добавляет лишние баллы
-
-  return { mag: "Kasper", score, reasons, punishment: { mute: score ? "1ч" : "0м", warnings: score } };
+let last = Bot.getProp("lastComplaint");
+if (!last) {
+  return Bot.sendMessage("⚠️ Жалобы нет. Сначала отправь её через /complain.");
 }
 
-function melchiorAnalysis(text, prevScores = []) {
-  // Мельхиор — средний, учитывает правила и дисциплину
-  let score = 0, reasons = [];
+Bot.sendMessage("Reportbot: Анализ жалобы...\n🔹 Последняя жалоба: " + last);
 
-  if (/ссора|спам|нарушение/i.test(text)) {
-    score += 1;
-    reasons.push("Нарушение дисциплины");
-  }
-  if (/гей|идиот|дурак/i.test(text)) {
-    score += 2;
-    reasons.push("Оскорбления");
-  }
+// Промпты для агентов
+const systemCasper = "Ты Casper — оценщик человечности, тона и социальной чувствительности. " +
+"Сначала дай свой вердикт по жалобе, потом оцени аргументы других агентов.";
 
-  // Усиливаем, если Каспер не поставил высоко
-  if (prevScores[0] < 2) score += 1;
+const systemMelchior = "Ты Melchior — строго следуешь правилам чата и логике наказаний. " +
+"Первый даёшь вердикт, затем отвечаешь на аргументы других.";
 
-  return { mag: "Melchior", score, reasons, punishment: { mute: score ? "1ч" : "0м", warnings: score } };
-}
+const systemBalthasar = "Ты Balthasar — оцениваешь уровень опасности и вреда в сообщении. " +
+"Сначала дай свою оценку, потом обсуди с остальными.";
 
-function balthasarAnalysis(text, prevScores = []) {
-  // Бальтазар — строгий, учитывает угрозы, опасное поведение
-  let score = 0, reasons = [];
-
-  if (/стрелять|убью|насилие/i.test(text)) {
-    score += 3;
-    reasons.push("Опасное поведение");
-  }
-
-  // Если другие мозги уже поставили высокий балл — усиливаем наказание
-  if (prevScores.some(s => s >= 2)) score += 1;
-
-  return { mag: "Balthasar", score, reasons, punishment: { mute: score ? "2ч" : "0м", warnings: score } };
-}
-
-// --- Функция анализа жалобы с выводом вердиктов каждого мага ---
-function analyzeComplaint(text) {
-  const results = [];
-
-  // Каспер первый
-  const kasper = kasperAnalysis(text);
-  results.push(kasper);
-
-  // Мельхиор учитывает Каспера
-  const melchior = melchiorAnalysis(text, [kasper.score]);
-  results.push(melchior);
-
-  // Бальтазар учитывает всех предыдущих
-  const balthasar = balthasarAnalysis(text, [kasper.score, melchior.score]);
-  results.push(balthasar);
-
-  // Финальный вердикт — максимальные наказания
-  const finalPunishment = {
-    mute: results.reduce((acc, r) => (r.punishment.mute > acc ? r.punishment.mute : acc), "0м"),
-    warnings: results.reduce((acc, r) => (r.punishment.warnings > acc ? r.punishment.warnings : 0))
-  };
-  const totalScore = results.reduce((acc, r) => acc + r.score, 0);
-
-  return { results, final: { totalScore, finalPunishment } };
-}
-
-// --- Команда /magi ---
-bot.onText(/\/magi/, (msg) => {
-  const chatId = msg.chat.id;
-  const complaint = complaints[chatId]?.text;
-
-  if (!complaint) return bot.sendMessage(chatId, "⚠️ Нет жалобы. Сначала отправьте её через /complain.");
-
-  bot.sendMessage(chatId, "Reportbot: Начинаем анализ жалобы...");
-
-  const analysis = analyzeComplaint(complaint);
-
-  // Показываем вердикт каждого мага в чате
-  analysis.results.forEach(res => {
-    bot.sendMessage(chatId, `🔹 ${res.mag} вынес вердикт:\nБаллы: ${res.score}\nПричины: ${res.reasons.join(", ") || "-"}\nПредлагаемое наказание: мут ${res.punishment.mute}, предупреждения: ${res.punishment.warnings}`);
+async function askAgent(name, systemPrompt, complaint, history = []) {
+  let messages = [
+    { role: "system", content: systemPrompt },
+    { role: "user",   content: "Жалоба: " + complaint }
+  ];
+  // добавить аргументы из истории
+  history.forEach(m => messages.push(m));
+  
+  let response = await HTTP.post({
+    url: "https://magi-server-hr70.onrender.com/analyze",
+    headers: {"Content-Type": "application/json"},
+    body: { text: JSON.stringify(messages) }
   });
+  
+  let text = response.data?.analysis || "Не смог оценить жалобу.";
+  return { name, text };
+}
 
-  // Финальное решение
-  const final = analysis.final;
-  bot.sendMessage(chatId, `🔹 Решение MAGI:\nСуммарные баллы: ${final.totalScore}\nНаказание: мут ${final.finalPunishment.mute}, предупреждения: ${final.finalPunishment.warnings}`);
-});
+// Первый круг — вердикты
+let c1 = await askAgent("Casper", systemCasper, last);
+Bot.sendMessage(`🧠 ${c1.name}: ${c1.text}`);
+
+let m1 = await askAgent("Melchior", systemMelchior, last);
+Bot.sendMessage(`🧠 ${m1.name}: ${m1.text}`);
+
+let b1 = await askAgent("Balthasar", systemBalthasar, last);
+Bot.sendMessage(`🧠 ${b1.name}: ${b1.text}`);
+
+// Сбор аргументов для обсуждения
+let history = [
+  { role: "assistant", content: `${c1.name} сказал: ${c1.text}` },
+  { role: "assistant", content: `${m1.name} сказал: ${m1.text}` },
+  { role: "assistant", content: `${b1.name} сказал: ${b1.text}` }
+];
+
+// Второй круг — обсуждения
+let c2 = await askAgent("Casper", systemCasper, last, history);
+Bot.sendMessage(`💬 ${c2.name} доп.: ${c2.text}`);
+
+let m2 = await askAgent("Melchior", systemMelchior, last, history);
+Bot.sendMessage(`💬 ${m2.name} доп.: ${m2.text}`);
+
+let b2 = await askAgent("Balthasar", systemBalthasar, last, history);
+Bot.sendMessage(`💬 ${b2.name} доп.: ${b2.text}`);
+
+// Итог
+Bot.sendMessage("🔹 Итоговое решение MAGI:\nОцените описания выше и сформируйте обоснованное решение на основе обсуждения.");
