@@ -7,58 +7,56 @@ if (!complaint) {
 
 Bot.sendMessage("Reportbot:\n🔹 Анализ жалобы...\n🔹 Последняя жалоба: " + complaint);
 
-// Уникальные роли агентов
-const roleCasper    = "Ты Casper — эмоционально человечный анализатор.";
-const roleMelchior  = "Ты Melchior — логический строгий анализатор правил чата.";
-const roleBalthasar = "Ты Balthasar — анализируешь угрозы и вред для сообщества.";
+// Роли агентов
+const systemCasper    = "Ты Casper — человеческий анализатор: оцени эмоции, тона и человечность.";
+const systemMelchior  = "Ты Melchior — логичный строгий анализатор: оцени по правилам чата.";
+const systemBalthasar = "Ты Balthasar — анализатор опасности и вреда для сообщества.";
 
 // Функция запроса к серверу анализа
-async function askAI(role, prompt) {
+async function askAI(role, message) {
   let res = await HTTP.post({
     url: "https://magi-server-hr70.onrender.com/analyze",
     headers: { "Content-Type": "application/json" },
-    body: { text: `${role}\n${prompt}` }
+    body: { text: `${role}\n${message}` }
   });
   return res.data?.analysis || "Ответ отсутствует.";
 }
 
-// Раунд 1: первые мнения
-let c1 = await askAI(roleCasper, `Жалоба: "${complaint}"`);
-Bot.sendMessage(`🧠 Casper: ${c1}`);
+// Раунд 1 — базовые мнения
+let casper1 = await askAI(systemCasper, `Жалоба: "${complaint}"`);
+Bot.sendMessage(`🧠 Casper: ${casper1}`);
 
-let m1 = await askAI(roleMelchior, `Жалоба: "${complaint}"`);
-Bot.sendMessage(`🧠 Melchior: ${m1}`);
+let melchior1 = await askAI(systemMelchior, `Жалоба: "${complaint}"`);
+Bot.sendMessage(`🧠 Melchior: ${melchior1}`);
 
-let b1 = await askAI(roleBalthasar, `Жалоба: "${complaint}"`);
-Bot.sendMessage(`🧠 Balthasar: ${b1}`);
+let balthasar1 = await askAI(systemBalthasar, `Жалоба: "${complaint}"`);
+Bot.sendMessage(`🧠 Balthasar: ${balthasar1}`);
 
-// Раунд 2: обсуждение каспером мнений других
-let c2 = await askAI(roleCasper,
-  `Ответь на мнения других:\nMelchior сказал: "${m1}"\nBalthasar сказал: "${b1}"`);
-Bot.sendMessage(`💬 Casper обсуждает: ${c2}`);
+// Раунд 2 — ответы друг другу
+let casper2 = await askAI(systemCasper,
+  `Ответь на мнения:\nMelchior => ${melchior1}\nBalthasar => ${balthasar1}`);
+Bot.sendMessage(`💬 Casper обсуждает: ${casper2}`);
 
-// Мельхиор отвечает касперу и Бальтазару
-let m2 = await askAI(roleMelchior,
-  `Ответь на мнения других:\nCasper сказал: "${c1}"\nBalthasar сказал: "${b1}"`);
-Bot.sendMessage(`💬 Melchior обсуждает: ${m2}`);
+let melchior2 = await askAI(systemMelchior,
+  `Ответь на мнения:\nCasper => ${casper1}\nBalthasar => ${balthasar1}`);
+Bot.sendMessage(`💬 Melchior обсуждает: ${melchior2}`);
 
-// Бальтазар отвечает касперу и мельхиору
-let b2 = await askAI(roleBalthasar,
-  `Ответь на мнения других:\nCasper сказал: "${c1}"\nMelchior сказал: "${m1}"`);
-Bot.sendMessage(`💬 Balthasar обсуждает: ${b2}`);
+let balthasar2 = await askAI(systemBalthasar,
+  `Ответь на мнения:\nCasper => ${casper1}\nMelchior => ${melchior1}`);
+Bot.sendMessage(`💬 Balthasar обсуждает: ${balthasar2}`);
 
-// Финальный синтез
+// Финальный итог после обсуждения
 let finalPrompt = `
-На основе всех реплик:
-Casper: ${c1}
-Melchior: ${m1}
-Balthasar: ${b1}
+На основе всех мнений:
+Casper: ${casper1}
+Melchior: ${melchior1}
+Balthasar: ${balthasar1}
 
-Casper обсуждал: ${c2}
-Melchior обсуждал: ${m2}
-Balthasar обсуждал: ${b2}
+Casper обсудил: ${casper2}
+Melchior обсудил: ${melchior2}
+Balthasar обсудил: ${balthasar2}
 
-Составь итоговый вердикт и объясни почему.
-`;
-let finalVerdict = await askAI(roleMelchior, finalPrompt);
+Составь итоговый вердикт и объясни почему.`;
+
+let finalVerdict = await askAI(systemMelchior, finalPrompt);
 Bot.sendMessage(`🔹 Итоговое решение MAGI:\n${finalVerdict}`);
