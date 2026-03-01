@@ -1,66 +1,66 @@
-/* command: /magi */
+/*command: /magi */
 
-let last = Bot.getProp("lastComplaint");
-if (!last) {
+let complaint = Bot.getProp("lastComplaint");
+if (!complaint) {
   return Bot.sendMessage("⚠️ Жалобы нет. Сначала отправь её через /complain.");
 }
 
-Bot.sendMessage("Reportbot: Анализ жалобы...\n🔹 Последняя жалоба: " + last);
+Bot.sendMessage("Reportbot:\nАнализ жалобы...\n🔹 Последняя жалоба: " + complaint);
 
-// Промпты для агентов
-const systemCasper = "Ты Casper — оценщик человечности, тона и социальной чувствительности. " +
-"Сначала дай свой вердикт по жалобе, потом оцени аргументы других агентов.";
+// Промт, объясняющий задачи каждого мага
+let promptCasper = `Ты Casper — оцени эмоциональную и человеческую сторону. Оцени жалобу с точки зрения человечности, тона и контекста.\nЖалоба: "${complaint}"`;
 
-const systemMelchior = "Ты Melchior — строго следуешь правилам чата и логике наказаний. " +
-"Первый даёшь вердикт, затем отвечаешь на аргументы других.";
+let promptMelchior = `Ты Melchior — строгий логик. Оцени жалобу строго по правилам чата RcSoulsFlood.\nЖалоба: "${complaint}"`;
 
-const systemBalthasar = "Ты Balthasar — оцениваешь уровень опасности и вреда в сообщении. " +
-"Сначала дай свою оценку, потом обсуди с остальными.";
+let promptBalthasar = `Ты Balthasar — оцени уровень вреда и опасности. Оцени, насколько сообщение может вредить участникам или атмосфере чата.\nЖалоба: "${complaint}"`;
 
-async function askAgent(name, systemPrompt, complaint, history = []) {
-  let messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user",   content: "Жалоба: " + complaint }
-  ];
-  // добавить аргументы из истории
-  history.forEach(m => messages.push(m));
-  
+// Функция вызова аналайзера
+async function requestMag(prompt) {
   let response = await HTTP.post({
     url: "https://magi-server-hr70.onrender.com/analyze",
-    headers: {"Content-Type": "application/json"},
-    body: { text: JSON.stringify(messages) }
+    headers: { "Content-Type": "application/json" },
+    body: { text: prompt }
   });
-  
-  let text = response.data?.analysis || "Не смог оценить жалобу.";
-  return { name, text };
+  return response.data?.analysis || "Не удалось получить ответ";
 }
 
-// Первый круг — вердикты
-let c1 = await askAgent("Casper", systemCasper, last);
-Bot.sendMessage(`🧠 ${c1.name}: ${c1.text}`);
+// Первый круг — каждый выносит свой вердикт
+let casperVerdict = await requestMag(promptCasper);
+Bot.sendMessage(`🧠 Casper: ${casperVerdict}`);
 
-let m1 = await askAgent("Melchior", systemMelchior, last);
-Bot.sendMessage(`🧠 ${m1.name}: ${m1.text}`);
+let melchiorVerdict = await requestMag(promptMelchior);
+Bot.sendMessage(`🧠 Melchior: ${melchiorVerdict}`);
 
-let b1 = await askAgent("Balthasar", systemBalthasar, last);
-Bot.sendMessage(`🧠 ${b1.name}: ${b1.text}`);
+let balthasarVerdict = await requestMag(promptBalthasar);
+Bot.sendMessage(`🧠 Balthasar: ${balthasarVerdict}`);
 
-// Сбор аргументов для обсуждения
-let history = [
-  { role: "assistant", content: `${c1.name} сказал: ${c1.text}` },
-  { role: "assistant", content: `${m1.name} сказал: ${m1.text}` },
-  { role: "assistant", content: `${b1.name} сказал: ${b1.text}` }
-];
+// Составляем историю мнений для обсуждения
+let discussionHistory = 
+`Casper сказал: ${casperVerdict}\nMelchior сказал: ${melchiorVerdict}\nBalthasar сказал: ${balthasarVerdict}`;
 
-// Второй круг — обсуждения
-let c2 = await askAgent("Casper", systemCasper, last, history);
-Bot.sendMessage(`💬 ${c2.name} доп.: ${c2.text}`);
+// Второй круг обсуждения
+let casperDiscuss = await requestMag(
+  `Теперь обсуди мнения других магов и приведи аргументы:\n${discussionHistory}`
+);
+Bot.sendMessage(`💬 Casper обсуждение: ${casperDiscuss}`);
 
-let m2 = await askAgent("Melchior", systemMelchior, last, history);
-Bot.sendMessage(`💬 ${m2.name} доп.: ${m2.text}`);
+let melchiorDiscuss = await requestMag(
+  `Теперь обсуди мнения других магов и приведи аргументы:\n${discussionHistory}`
+);
+Bot.sendMessage(`💬 Melchior обсуждение: ${melchiorDiscuss}`);
 
-let b2 = await askAgent("Balthasar", systemBalthasar, last, history);
-Bot.sendMessage(`💬 ${b2.name} доп.: ${b2.text}`);
+let balthasarDiscuss = await requestMag(
+  `Теперь обсуди мнения других магов и приведи аргументы:\n${discussionHistory}`
+);
+Bot.sendMessage(`💬 Balthasar обсуждение: ${balthasarDiscuss}`);
 
-// Итог
-Bot.sendMessage("🔹 Итоговое решение MAGI:\nОцените описания выше и сформируйте обоснованное решение на основе обсуждения.");
+// Финальный синтез вердиктов
+let finalVerdictPrompt = 
+`На основе всех высказанных мнений (см. ниже), составь итоговый вердикт по жалобе:\n\n` +
+discussionHistory + "\n\n" +
+`Casper обсуждал: ${casperDiscuss}\n` +
+`Melchior обсуждал: ${melchiorDiscuss}\n` +
+`Balthasar обсуждал: ${balthasarDiscuss}`;
+
+let finalVerdict = await requestMag(finalVerdictPrompt);
+Bot.sendMessage(`🔹 Итоговое решение MAGI:\n${finalVerdict}`);
