@@ -1,37 +1,33 @@
 import express from "express";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
-
 dotenv.config();
+
 const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const HF_TOKEN = process.env.HF_TOKEN;
 
-// Твоя подробная системная инструкция
 const systemPrompt = `
-Ты — модератор чата RcSoulsFlood. Твоя задача — анализировать жалобы
-по правилам чата и давать структурированный ответ:
-
-Правила:
-Ссоры: мут 1ч + 1пред.
-Оскорбления: мут 1ч + 2преда.
-Нарушение личных границ: пред + мут 2ч/бан.
-Пропаганда/реклама/18+: пред + мут 2ч.
-Недостоверная информация: мут 2ч.
-Нарушение дисциплины: 2преда.
-Провокации: пред.
-Спам: мут 30 мин.
-Неприемлемый контент (18+, расчленёнка): 2преда + мут 1ч.
-Калл без разрешения: запрещён.
-
-Проанализируй жалобу и верни строго в таком виде:
-
+Ты — модератор чата RcSoulsFlood. Твоя задача:
+Проанализировать жалобу по правилам чата и выдать:
 Нарушения:
 Баллы:
 Предлагаемое наказание:
 Причина:
+
+Правила:
+Ссоры: мут 1 час + 1 пред.
+Оскорбления: мут 1 час + 2 преда.
+Нарушение личных границ: пред + мут 2 часа (иногда бан).
+Пропаганда/реклама/18+: пред + мут 2 часа.
+Недостоверная информация: мут 2 часа.
+Нарушение дисциплины: 2 преда.
+Провокации: пред.
+Спам (>10 одинаковых): мут 30 минут.
+Неприемлемый контент (18+, расчленёнка): 2 преда + мут 1 час.
+Калл без разрешения: запрещён.
 `;
 
 app.get("/", (req, res) => {
@@ -43,31 +39,30 @@ app.post("/analyze", async (req, res) => {
   if (!text) return res.status(400).json({ error: "Нет текста для анализа" });
 
   try {
-    const response = await fetch("https://router.huggingface.co/v1/chat/completions", {
+    const apiRes = await fetch("https://router.huggingface.co/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${HF_TOKEN}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "deepseek-ai/DeepSeek-R1:fastest", 
+        model: "meta-llama/Llama-3.1-8B-Instruct:cerebras",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user",   content: text }
+          { role: "user", content: text }
         ],
-        temperature: 0.2,
-        max_tokens: 500
+        temperature: 0.3,
+        max_tokens: 400
       })
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return res.status(response.status).json({ error: errorText });
+    if (!apiRes.ok) {
+      const errText = await apiRes.text();
+      return res.status(apiRes.status).json({ error: errText });
     }
 
-    const data = await response.json();
+    const data = await apiRes.json();
 
-    // Модель возвращает текст в choices[0].message.content
     let answer = "";
     if (data.choices && data.choices[0] && data.choices[0].message) {
       answer = data.choices[0].message.content.trim();
@@ -75,12 +70,10 @@ app.post("/analyze", async (req, res) => {
 
     return res.json({ analysis: answer });
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Ошибка анализа на сервере" });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Ошибка анализа на сервере" });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
