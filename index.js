@@ -1,14 +1,21 @@
 import express from "express";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
+
 dotenv.config();
 
 const app = express();
 app.use(express.json());
 
+// Настройки
 const PORT = process.env.PORT || 3000;
-const HF_TOKEN = process.env.HF_TOKEN;// твой Hugging Face токен
-const HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct"; // модель
+const HF_TOKEN = process.env.HF_TOKEN; // твой Hugging Face токен
+const HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct"; // модель Hugging Face
+
+// Корневой маршрут для проверки, что сервер работает
+app.get("/", (req, res) => {
+  res.send("MAGI server is running");
+});
 
 // Endpoint для анализа жалобы
 app.post("/analyze", async (req, res) => {
@@ -25,12 +32,18 @@ app.post("/analyze", async (req, res) => {
       },
       body: JSON.stringify({
         inputs: `Проанализируй эту жалобу по правилам чата и выдай:
-        1. Нарушения
-        2. Баллы
-        3. Предлагаемое наказание
-        Текст: ${text}`
+1. Нарушения
+2. Баллы
+3. Предлагаемое наказание
+Текст жалобы: ${text}`
       })
     });
+
+    // Проверка на ошибку
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(response.status).json({ error: errText });
+    }
 
     const data = await response.json();
     res.json({ analysis: data });
@@ -40,4 +53,7 @@ app.post("/analyze", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Запуск сервера
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
