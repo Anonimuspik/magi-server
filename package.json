@@ -1,9 +1,15 @@
-body: JSON.stringify({
-  model: "deepseek-ai/DeepSeek-R1:fastest",
-  messages: [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: text }
-  ],
-  temperature: 0.3,
-  max_tokens: 450
-})
+{
+  "name": "magi-server",
+  "version": "1.0.0",
+  "description": "Server для анализа жалоб через Hugging Face chat API",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.1",
+    "dotenv": "^16.4.0"
+  }
+}
