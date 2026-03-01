@@ -7,26 +7,26 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const HF_TOKEN = process.env.HF_TOKEN;
+const HF_TOKEN = process.env.HF_TOKEN; // Твой Hugging Face токен
 const HF_MODEL = "meta-llama/Llama-3.1-8B-Instruct";
 
-// Функция анализа жалобы только Casper
-async function analyzeComplaint(text) {
-  const prompt = `
-Ты — модератор Casper. Твоя задача максимально человечно оценить жалобу.
-- Выбираешь нарушения самостоятельно исходя из текста.
-- Стараешься смягчить наказание, если это возможно.
-- Объясни, почему выбрал нарушения и наказание.
-- Укажи нарушения, баллы и предложенное наказание.
+// Casper — человечный мозг
+async function casperAnalyze(text) {
+  // Подготовим prompt
+  const finalPrompt = `
+Ты — Casper, самый человечный модератор чата. Твоя задача:
+- Определить нарушения, если они есть.
+- Выставлять наказания мягче, чем обычно.
+- Объяснять в "Причинах", почему наказание минимальное.
+- Баллы ставь не больше реальной опасности/грубой силы фразы.
 
 Текст жалобы: "${text}"
-
-Ответ в формате JSON:
+Выведи JSON:
 {
-  "violations": ["..."],
-  "points": 0,
-  "proposedPunishment": "...",
-  "reasoning": "..."
+  "нарушения": ["пример"],
+  "баллы": число,
+  "предлагаемое_наказание": ["пример"],
+  "причина": "развёрнутый текст, аргументы Casper"
 }
 `;
 
@@ -36,11 +36,21 @@ async function analyzeComplaint(text) {
       "Authorization": `Bearer ${HF_TOKEN}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ inputs: prompt })
+    body: JSON.stringify({ inputs: finalPrompt })
   });
 
   const data = await response.json();
-  return data;
+  // Модель возвращает текст в data[0].generated_text или data.generated_text
+  const resultText = data?.[0]?.generated_text || data?.generated_text || "";
+  try {
+    // Попытка распарсить JSON из текста модели
+    const jsonStart = resultText.indexOf("{");
+    const jsonEnd = resultText.lastIndexOf("}") + 1;
+    const jsonString = resultText.slice(jsonStart, jsonEnd);
+    return JSON.parse(jsonString);
+  } catch {
+    return { error: "Не удалось распарсить ответ модели", raw: resultText };
+  }
 }
 
 // Endpoint для анализа жалобы
@@ -49,8 +59,8 @@ app.post("/analyze", async (req, res) => {
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: "Нет текста" });
 
-    const result = await analyzeComplaint(text);
-    res.json({ analysis: result });
+    const analysis = await casperAnalyze(text);
+    res.json({ analysis });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Ошибка сервера" });
@@ -58,7 +68,7 @@ app.post("/analyze", async (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.send("MAGI Casper server is running");
+  res.send("MAGI server is running. Use POST /analyze with {text}.");
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
