@@ -1,11 +1,7 @@
 {
-  "name": "magi-server",
-  "version": "1.0.0",
-  "main": "index.js",
-  "type": "module",
-  "dependencies": {
-    "express": "^4.18.2",
-    "node-fetch": "^3.3.1",
-    "dotenv": "^16.4.0"
-  }
+  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "messages": [
+    {"role":"system","content":"Ты анализируешь жалобы по правилам чата: ...описать нарушения, баллы, наказание"},
+    {"role":"user","content":"Жалоба: Твоя мать мне сосала"}
+  ]
 }
