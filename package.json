@@ -1,7 +1,9 @@
-{
-  "model": "meta-llama/Llama-3.1-8B-Instruct",
-  "messages": [
-    {"role":"system","content":"Ты анализируешь жалобы по правилам чата: ...описать нарушения, баллы, наказание"},
-    {"role":"user","content":"Жалоба: Твоя мать мне сосала"}
-  ]
-}
+body: JSON.stringify({
+  model: "deepseek-ai/DeepSeek-R1:fastest",
+  messages: [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: text }
+  ],
+  temperature: 0.3,
+  max_tokens: 450
+})
