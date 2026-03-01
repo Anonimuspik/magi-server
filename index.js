@@ -1,4 +1,4 @@
-/*command: /magi */
+/* command: /magi */
 
 let complaint = Bot.getProp("lastComplaint");
 if (!complaint) {
@@ -7,18 +7,16 @@ if (!complaint) {
 
 Bot.sendMessage("Reportbot:\n🔹 Анализ жалобы...\n🔹 Последняя жалоба: " + complaint);
 
-// Тексты «ролей»
-const ROLE_CASPER = "Ты Casper — очень человечный анализатор: оцени эмоциональность, тон, чувство человека.";
-const ROLE_BALTHASAR = "Ты Balthasar — анализатор опасности и вреда: оцени угрозы, дискриминацию, вред для атмосферы чата.";
+const ROLE_CASPER    = "Ты Casper — человеческий и тонкий анализатор: оцени эмоции, тон и человечность выражения.";
+const ROLE_BALTHASAR = "Ты Balthasar — строго оцени уровень вреда, угроз и возможный вред сообществу.";
 
-// Обёртка для запроса к нашему серверу анализа
 async function askAI(role, prompt) {
-  let response = await HTTP.post({
+  let res = await HTTP.post({
     url: "https://magi-server-hr70.onrender.com/analyze",
     headers: { "Content-Type": "application/json" },
     body: { text: role + "\n" + prompt }
   });
-  return response.data?.analysis || "Ответ отсутствует.";
+  return res.data?.analysis || "ответ отсутствует.";
 }
 
 // Раунд 1 — первичные мнения
@@ -28,33 +26,39 @@ Bot.sendMessage(`🧠 Casper: ${casper1}`);
 let balthasar1 = await askAI(ROLE_BALTHASAR, `Жалоба: "${complaint}"`);
 Bot.sendMessage(`🧠 Balthasar: ${balthasar1}`);
 
-// Раунд 2 — ответ Casper на Balthasar
+// Раунд 2 — Casper отвечает Balthasar
 let casper2 = await askAI(
   ROLE_CASPER,
-  `Ответ Balthasar: "${balthasar1}"\nТеперь прокомментируй это и обоснуй своё мнение.`
+  `Ответ Balthasar: "${balthasar1}"\nПоясни, почему ты считаешь это важным.`
 );
 Bot.sendMessage(`💬 Casper отвечает: ${casper2}`);
 
-// Раунд 3 — ответ Balthasar на Casper
+// Раунд 3 — Balthasar отвечает Casper
 let balthasar2 = await askAI(
   ROLE_BALTHASAR,
-  `Ответ Casper: "${casper1}"\nCasper ответил второй раз: "${casper2}"\nТеперь прокомментируй это и обоснуй своё мнение.`
+  `Casper сказал: "${casper1}"\nCasper ответил: "${casper2}"\nПоясни, почему ты так считаешь.`
 );
 Bot.sendMessage(`💬 Balthasar отвечает: ${balthasar2}`);
 
-// Финальный итог на основе реплик
-let finalPrompt = `
-На основе всех реплик:
-Casper первый: ${casper1}
-Balthasar первый: ${balthasar1}
-Casper обсуждает: ${casper2}
-Balthasar обсуждает: ${balthasar2}
+// Финальный итог с явным объяснением причин
 
-Составь итоговый вердикт и объясни почему.
+let finalPrompt = `
+На основе:
+Casper: ${casper1}
+Balthasar: ${balthasar1}
+
+Casper обсудил: ${casper2}
+Balthasar обсудил: ${balthasar2}
+
+Составь итоговый вердикт. Обязательно укажи:
+1) какие нарушения
+2) сколько баллов
+3) предлагаемые наказания
+4) *и подробно объясни почему* ты так решил, с отсылкой к репликам Casper и Balthasar.
 `;
 
 let finalVerdict = await askAI(
-  ROLE_CASPER,
+  "Ты Melchior — строгий логик, который формирует итог, учитывая объяснения других агентов.",
   finalPrompt
 );
 
