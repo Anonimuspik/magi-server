@@ -5,62 +5,56 @@ if (!complaint) {
   return Bot.sendMessage("⚠️ Жалобы нет. Сначала отправь её через /complain.");
 }
 
-Bot.sendMessage("Reportbot:\nАнализ жалобы...\n🔹 Последняя жалоба: " + complaint);
+Bot.sendMessage("Reportbot:\n🔹 Анализ жалобы...\n🔹 Последняя жалоба: " + complaint);
 
-// Промт, объясняющий задачи каждого мага
-let promptCasper = `Ты Casper — оцени эмоциональную и человеческую сторону. Оцени жалобу с точки зрения человечности, тона и контекста.\nЖалоба: "${complaint}"`;
+// Промты, моделирующие личности каждого MAGI
+let promptCasper = `Ты Casper — эмоционально‑человечный анализатор. Первое мнение по жалобе:\n"${complaint}"`;
+let promptMelchior = `Ты Melchior — логичный и строгий анализатор. Первое мнение по жалобе:\n"${complaint}"`;
+let promptBalthasar = `Ты Balthasar — анализатор опасности и вреда. Первое мнение по жалобе:\n"${complaint}"`;
 
-let promptMelchior = `Ты Melchior — строгий логик. Оцени жалобу строго по правилам чата RcSoulsFlood.\nЖалоба: "${complaint}"`;
-
-let promptBalthasar = `Ты Balthasar — оцени уровень вреда и опасности. Оцени, насколько сообщение может вредить участникам или атмосфере чата.\nЖалоба: "${complaint}"`;
-
-// Функция вызова аналайзера
-async function requestMag(prompt) {
-  let response = await HTTP.post({
+// Обёртка для запроса к анализатору
+async function askAI(content) {
+  let res = await HTTP.post({
     url: "https://magi-server-hr70.onrender.com/analyze",
     headers: { "Content-Type": "application/json" },
-    body: { text: prompt }
+    body: { text: content }
   });
-  return response.data?.analysis || "Не удалось получить ответ";
+  return res.data?.analysis || "Ответ отсутствует";
 }
 
-// Первый круг — каждый выносит свой вердикт
-let casperVerdict = await requestMag(promptCasper);
-Bot.sendMessage(`🧠 Casper: ${casperVerdict}`);
+// Первый круг — первичные вердикты
+let c1 = await askAI(promptCasper);
+Bot.sendMessage(`🧠 Casper: ${c1}`);
 
-let melchiorVerdict = await requestMag(promptMelchior);
-Bot.sendMessage(`🧠 Melchior: ${melchiorVerdict}`);
+let m1 = await askAI(promptMelchior);
+Bot.sendMessage(`🧠 Melchior: ${m1}`);
 
-let balthasarVerdict = await requestMag(promptBalthasar);
-Bot.sendMessage(`🧠 Balthasar: ${balthasarVerdict}`);
+let b1 = await askAI(promptBalthasar);
+Bot.sendMessage(`🧠 Balthasar: ${b1}`);
 
-// Составляем историю мнений для обсуждения
-let discussionHistory = 
-`Casper сказал: ${casperVerdict}\nMelchior сказал: ${melchiorVerdict}\nBalthasar сказал: ${balthasarVerdict}`;
+// Формируем историю аргументов для обсуждения
+let history = 
+`Casper: ${c1}\nMelchior: ${m1}\nBalthasar: ${b1}`;
 
-// Второй круг обсуждения
-let casperDiscuss = await requestMag(
-  `Теперь обсуди мнения других магов и приведи аргументы:\n${discussionHistory}`
-);
-Bot.sendMessage(`💬 Casper обсуждение: ${casperDiscuss}`);
+// Второй круг — дискуссия (каждый отвечает на историю аргументов)
+let c2 = await askAI(`Casper отвечает на:\n${history}`);
+Bot.sendMessage(`💬 Casper обсуждает: ${c2}`);
 
-let melchiorDiscuss = await requestMag(
-  `Теперь обсуди мнения других магов и приведи аргументы:\n${discussionHistory}`
-);
-Bot.sendMessage(`💬 Melchior обсуждение: ${melchiorDiscuss}`);
+let m2 = await askAI(`Melchior отвечает на:\n${history}`);
+Bot.sendMessage(`💬 Melchior обсуждает: ${m2}`);
 
-let balthasarDiscuss = await requestMag(
-  `Теперь обсуди мнения других магов и приведи аргументы:\n${discussionHistory}`
-);
-Bot.sendMessage(`💬 Balthasar обсуждение: ${balthasarDiscuss}`);
+let b2 = await askAI(`Balthasar отвечает на:\n${history}`);
+Bot.sendMessage(`💬 Balthasar обсуждает: ${b2}`);
 
-// Финальный синтез вердиктов
-let finalVerdictPrompt = 
-`На основе всех высказанных мнений (см. ниже), составь итоговый вердикт по жалобе:\n\n` +
-discussionHistory + "\n\n" +
-`Casper обсуждал: ${casperDiscuss}\n` +
-`Melchior обсуждал: ${melchiorDiscuss}\n` +
-`Balthasar обсуждал: ${balthasarDiscuss}`;
+// Финальная синтеза‑сведение всех мнений
+let finalPrompt = 
+`На основе всех мнений, сформируй итог:
+Casper: ${c1}
+Melchior: ${m1}
+Balthasar: ${b1}
+Casper обсуждает: ${c2}
+Melchior обсуждает: ${m2}
+Balthasar обсуждает: ${b2}`;
 
-let finalVerdict = await requestMag(finalVerdictPrompt);
+let finalVerdict = await askAI(finalPrompt);
 Bot.sendMessage(`🔹 Итоговое решение MAGI:\n${finalVerdict}`);
